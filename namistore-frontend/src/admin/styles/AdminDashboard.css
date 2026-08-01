@@ -1,0 +1,63 @@
+.admin-dashboard{
+
+    min-height:70vh;
+
+    max-width:900px;
+
+    margin:40px auto;
+
+    padding:30px;
+
+}
+
+.admin-dashboard h1{
+
+    text-align:center;
+
+    margin-bottom:40px;
+
+    font-size:36px;
+
+}
+
+.admin-links{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:20px;
+
+}
+
+.admin-links a{
+
+    display:block;
+
+    text-decoration:none;
+
+    background:#0070f3;
+
+    color:white;
+
+    padding:18px;
+
+    border-radius:8px;
+
+    text-align:center;
+
+    font-size:18px;
+
+    font-weight:600;
+
+    transition:0.3s;
+
+}
+
+.admin-links a:hover{
+
+    background:#0057c2;
+
+    transform:translateY(-2px);
+
+}

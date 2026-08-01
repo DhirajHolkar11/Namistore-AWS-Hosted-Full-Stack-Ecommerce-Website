@@ -1,0 +1,76 @@
+.admin-products-page {
+
+    padding: 40px;
+
+}
+
+.admin-products-page h1 {
+
+    margin-bottom: 30px;
+
+}
+
+table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    background: white;
+
+}
+
+th,
+td {
+
+    border: 1px solid #ddd;
+
+    padding: 14px;
+
+    text-align: left;
+
+}
+
+th {
+
+    background: #0070f3;
+
+    color: white;
+
+}
+
+tr:nth-child(even) {
+
+    background: #f8f8f8;
+
+}
+
+button {
+
+    padding: 8px 14px;
+
+    margin-right: 8px;
+
+    cursor: pointer;
+
+    border: none;
+
+    border-radius: 5px;
+
+}
+
+button:first-child {
+
+    background: orange;
+
+    color: white;
+
+}
+
+button:last-child {
+
+    background: crimson;
+
+    color: white;
+
+}

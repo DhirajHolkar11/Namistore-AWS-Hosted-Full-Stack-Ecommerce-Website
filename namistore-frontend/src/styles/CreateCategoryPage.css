@@ -1,0 +1,108 @@
+.create-category-page {
+    min-height: 80vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 40px 20px;
+
+    background: #f5f5f5;
+}
+
+.create-category-card {
+    width: 100%;
+    max-width: 500px;
+
+    background: white;
+
+    padding: 40px;
+
+    border-radius: 10px;
+
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.create-category-card h1 {
+    text-align: center;
+
+    margin-bottom: 30px;
+
+    color: #222;
+}
+
+.create-category-card form {
+    display: flex;
+    flex-direction: column;
+
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 600;
+
+    color: #333;
+}
+
+.form-group input {
+    padding: 12px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 6px;
+
+    font-size: 16px;
+
+    outline: none;
+
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    border-color: #0070f3;
+}
+
+.create-category-card button {
+    padding: 14px;
+
+    border: none;
+
+    border-radius: 6px;
+
+    background: #0070f3;
+
+    color: white;
+
+    font-size: 16px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: background 0.2s;
+}
+
+.create-category-card button:hover:not(:disabled) {
+    background: #0059c9;
+}
+
+.create-category-card button:disabled {
+    background: #999;
+
+    cursor: not-allowed;
+}
+
+.create-category-card p {
+    text-align: center;
+
+    margin-bottom: 15px;
+
+    font-weight: 500;
+}

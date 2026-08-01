@@ -1,0 +1,58 @@
+.hero {
+  min-height: 600px;
+  padding: 0 80px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background-color: #f8f9fa;
+}
+
+.hero-left {
+  flex: 1;
+  max-width: 600px;
+}
+
+.hero-left h1 {
+  font-size: 4rem;
+  line-height: 1.2;
+  margin-bottom: 20px;
+}
+
+.hero-left p {
+  font-size: 1.2rem;
+  line-height: 1.8;
+  margin-bottom: 30px;
+  color: #555;
+}
+
+.shop-btn {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 6px;
+
+  font-size: 1rem;
+  cursor: pointer;
+
+  background-color: black;
+  color: white;
+}
+
+.shop-btn:hover {
+  opacity: 0.9;
+}
+
+.hero-right {
+  flex: 1;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hero-right img {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+}
