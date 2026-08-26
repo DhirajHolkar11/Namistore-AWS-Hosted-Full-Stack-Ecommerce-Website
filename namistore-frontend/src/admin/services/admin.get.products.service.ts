@@ -1,4 +1,4 @@
-import { apiFetch } from "./api.service";
+import { apiFetch } from "@/services/api.service";
 
 export async function getAdminProducts() {
 

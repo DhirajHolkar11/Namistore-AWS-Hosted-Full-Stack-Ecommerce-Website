@@ -1,3 +1,7 @@
+
+
+
+
 // import prisma from "../../config/prisma";
 
 // type UpdateProductInput = {
@@ -6,7 +10,7 @@
 //     description: string;
 //     price: number;
 //     stock: number;
-//     imageUrl: string;
+//     imageUrl?: string;
 //     categoryId: number;
 // };
 
@@ -16,79 +20,120 @@
 
 //     const existingProduct =
 //         await prisma.product.findUnique({
+
 //             where: {
 //                 id: data.id
 //             }
+
 //         });
 
 //     if (!existingProduct) {
+
 //         throw new Error(
 //             "Product not found"
 //         );
+
 //     }
 
 //     const category =
 //         await prisma.category.findUnique({
+
 //             where: {
 //                 id: data.categoryId
 //             }
+
 //         });
 
 //     if (!category) {
+
 //         throw new Error(
 //             "Category not found"
 //         );
+
 //     }
 
-//     const updatedProduct =
-//         await prisma.product.update({
-//             where: {
-//                 id: data.id
-//             },
+//     return await prisma.product.update({
 
-//             data: {
-//                 name: data.name.trim(),
-//                 description: data.description.trim(),
-//                 price: data.price,
-//                 stock: data.stock,
-//                 imageUrl: data.imageUrl.trim(),
-//                 categoryId: data.categoryId
-//             }
-//         });
+//         where: {
+//             id: data.id
+//         },
 
-//     return updatedProduct;
+//         data: {
+
+//             name:
+//                 data.name.trim(),
+
+//             description:
+//                 data.description.trim(),
+
+//             price:
+//                 data.price,
+
+//             stock:
+//                 data.stock,
+
+//             imageUrl:
+//                 data.imageUrl
+//                     ? data.imageUrl
+//                     : existingProduct.imageUrl,
+
+//             categoryId:
+//                 data.categoryId
+
+//         }
+
+//     });
+
 // }
-
-
-
 
 
 
 
 import prisma from "../../config/prisma";
 
+import {
+    deleteImageFromS3
+} from "../s3/delete-image";
+
+
 type UpdateProductInput = {
+
     id: number;
+
     name: string;
+
     description: string;
+
     price: number;
+
     stock: number;
+
     imageUrl?: string;
+
     categoryId: number;
+
 };
+
 
 export async function updateProduct(
     data: UpdateProductInput
 ) {
 
+    /*
+     * Find the existing product
+     */
+
     const existingProduct =
         await prisma.product.findUnique({
 
             where: {
+
                 id: data.id
+
             }
 
         });
+
 
     if (!existingProduct) {
 
@@ -98,14 +143,22 @@ export async function updateProduct(
 
     }
 
+
+    /*
+     * Check that the new category exists
+     */
+
     const category =
         await prisma.category.findUnique({
 
             where: {
+
                 id: data.categoryId
+
             }
 
         });
+
 
     if (!category) {
 
@@ -115,36 +168,77 @@ export async function updateProduct(
 
     }
 
-    return await prisma.product.update({
 
-        where: {
-            id: data.id
-        },
+    /*
+     * If a new image was uploaded,
+     * delete the old image from S3.
+     */
 
-        data: {
+    if (
+        data.imageUrl &&
+        existingProduct.imageUrl
+    ) {
 
-            name:
-                data.name.trim(),
+        /*
+         * Only try to delete the image
+         * if it is an S3 URL.
+         */
 
-            description:
-                data.description.trim(),
+        if (
+            existingProduct.imageUrl.startsWith(
+                "https://"
+            )
+        ) {
 
-            price:
-                data.price,
-
-            stock:
-                data.stock,
-
-            imageUrl:
-                data.imageUrl
-                    ? data.imageUrl
-                    : existingProduct.imageUrl,
-
-            categoryId:
-                data.categoryId
+            await deleteImageFromS3(
+                existingProduct.imageUrl
+            );
 
         }
 
-    });
+    }
+
+
+    /*
+     * Update the product in PostgreSQL
+     */
+
+    const product =
+        await prisma.product.update({
+
+            where: {
+
+                id: data.id
+
+            },
+
+            data: {
+
+                name:
+                    data.name.trim(),
+
+                description:
+                    data.description.trim(),
+
+                price:
+                    data.price,
+
+                stock:
+                    data.stock,
+
+                imageUrl:
+                    data.imageUrl
+                        ? data.imageUrl
+                        : existingProduct.imageUrl,
+
+                categoryId:
+                    data.categoryId
+
+            }
+
+        });
+
+
+    return product;
 
 }

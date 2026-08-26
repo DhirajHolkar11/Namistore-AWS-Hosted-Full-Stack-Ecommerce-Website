@@ -1,26 +1,20 @@
-const API_BASE_URL =
-  "http://localhost:5000/api";
+const API_BASE_URL =`${process.env.NEXT_PUBLIC_API_URL}/api`;
 
 export async function apiFetch(
   endpoint: string,
   options?: RequestInit
 ) {
-  const token =
-    localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
-  const response =
-    await fetch(
-      `${API_BASE_URL}${endpoint}`,
+  const response = await fetch(`${API_BASE_URL}${endpoint}`,
       {
         ...options,
 
         headers: {
-          "Content-Type":
-            "application/json",
+          "Content-Type":"application/json",
 
           ...(token && {
-            Authorization:
-              `Bearer ${token}`
+            Authorization:`Bearer ${token}`
           }),
 
           ...options?.headers
@@ -28,14 +22,10 @@ export async function apiFetch(
       }
     );
 
-  const data =
-    await response.json();
+  const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
-      data.message ||
-      "Something went wrong"
-    );
+    throw new Error(data.message || "Something went wrong");
   }
 
   return data;

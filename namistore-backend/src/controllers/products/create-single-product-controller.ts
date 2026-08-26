@@ -1,3 +1,9 @@
+
+
+
+
+
+
 // import { Request, Response } from "express";
 
 // import { createProduct }
@@ -15,7 +21,6 @@
 //             description,
 //             price,
 //             stock,
-//             imageUrl,
 //             categoryId
 //         } = req.body;
 
@@ -24,41 +29,76 @@
 //             !description ||
 //             price === undefined ||
 //             stock === undefined ||
-//             !imageUrl ||
 //             !categoryId
 //         ) {
+
 //             return res.status(400).json({
+
 //                 success: false,
+
 //                 message: "All fields are required"
+
 //             });
+
 //         }
+
+//         if (!req.file) {
+
+//             return res.status(400).json({
+
+//                 success: false,
+
+//                 message: "Product image is required"
+
+//             });
+
+//         }
+
+//         const imageUrl =
+//             `/uploads/products/${req.file.filename}`;
 
 //         const product =
 //             await createProduct({
+
 //                 name,
+
 //                 description,
+
 //                 price: Number(price),
+
 //                 stock: Number(stock),
+
 //                 imageUrl,
+
 //                 categoryId: Number(categoryId)
+
 //             });
 
 //         return res.status(201).json({
+
 //             success: true,
+
 //             product
+
 //         });
 
 //     }
 //     catch (error) {
 
 //         return res.status(400).json({
+
 //             success: false,
+
 //             message:
+
 //                 error instanceof Error
 //                     ? error.message
 //                     : "Something went wrong"
+
 //         });
+
 //     }
+
 // }
 
 
@@ -77,6 +117,10 @@ import { Request, Response } from "express";
 import { createProduct }
 from "../../services/products/create-single-product-service";
 
+import { uploadImageToS3 }
+from "../../services/s3/upload-image";
+
+
 export async function createProductController(
     req: Request,
     res: Response
@@ -91,6 +135,7 @@ export async function createProductController(
             stock,
             categoryId
         } = req.body;
+
 
         if (
             !name ||
@@ -110,6 +155,7 @@ export async function createProductController(
 
         }
 
+
         if (!req.file) {
 
             return res.status(400).json({
@@ -122,8 +168,10 @@ export async function createProductController(
 
         }
 
+
         const imageUrl =
-            `/uploads/products/${req.file.filename}`;
+            await uploadImageToS3(req.file);
+
 
         const product =
             await createProduct({
@@ -142,6 +190,7 @@ export async function createProductController(
 
             });
 
+
         return res.status(201).json({
 
             success: true,
@@ -151,7 +200,10 @@ export async function createProductController(
         });
 
     }
+
     catch (error) {
+
+        console.error(error);
 
         return res.status(400).json({
 
@@ -160,7 +212,9 @@ export async function createProductController(
             message:
 
                 error instanceof Error
+
                     ? error.message
+
                     : "Something went wrong"
 
         });

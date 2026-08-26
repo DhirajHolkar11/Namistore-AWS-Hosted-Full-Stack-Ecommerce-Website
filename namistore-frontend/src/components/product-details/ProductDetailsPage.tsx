@@ -35,6 +35,8 @@ import { addToCart } from "@/services/cart.service";
 
 import { addToWishlist } from "@/services/wishlist.service";
 
+import { getImageUrl } from "@/utils/image-url";
+
 export default function ProductDetailsPage() {
 
     const params =
@@ -247,7 +249,7 @@ export default function ProductDetailsPage() {
 
                 <div className="product-image-section">
 
-                    <img
+                    {/* <img
 
                         src={`http://localhost:5000${product.imageUrl}`}
 
@@ -255,6 +257,12 @@ export default function ProductDetailsPage() {
 
                         className="product-image"
 
+                    /> */}
+
+                    <img
+                        src={getImageUrl(product.imageUrl)}
+                        alt={product.name}
+                        className="product-image"
                     />
 
                 </div>

@@ -12,7 +12,7 @@ from "@/admin/services/admin.get.products.service";
 
 import { deleteProduct,activateProduct } from "@/admin/services/admin.product.service";
 
-import "@/styles/AdminProductsPage.css";
+import "@/admin/styles/AdminProductsPage.css";
 
 type Product = {
 

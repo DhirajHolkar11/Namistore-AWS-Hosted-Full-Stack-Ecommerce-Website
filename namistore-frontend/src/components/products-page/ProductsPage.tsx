@@ -14,6 +14,7 @@ import { Product }
 
 
 import ProductCard from "@/components/product-card/ProductCard";
+import { getImageUrl } from "@/utils/image-url";
 
 
 import {
@@ -349,7 +350,8 @@ export default function ProductsPage() {
                 id={product.id}
                 name={product.name}
                 price={Number(product.price)}
-                image={`${process.env.NEXT_PUBLIC_API_URL}${product.imageUrl}`}
+                // image={`${process.env.NEXT_PUBLIC_API_URL}${product.imageUrl}`}
+                image={getImageUrl(product.imageUrl)}
               />
             ))}
 

@@ -1,38 +1,3 @@
-// import { Request, Response } from "express";
-
-// import { getProducts }
-// from "../../services/products/get-all-products-service";
-
-// export async function getProductsController(
-//     req: Request,
-//     res: Response
-// ) {
-
-//     try {
-
-//         const products =
-//             await getProducts();
-
-//         return res.status(200).json({
-//             success: true,
-//             count: products.length,
-//             products
-//         });
-
-//     }
-//     catch (error) {
-
-//         return res.status(500).json({
-//             success: false,
-//             message:
-//                 error instanceof Error
-//                     ? error.message
-//                     : "Something went wrong"
-//         });
-//     }
-// }
-
-
 
 
 

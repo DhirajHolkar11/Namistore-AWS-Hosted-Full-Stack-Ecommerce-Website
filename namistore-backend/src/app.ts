@@ -12,8 +12,6 @@ import wishlistRoutes from "./routes/wishlist.routes";
 import paymentRoutes from "./routes/payment.routes";
 import adminRoutes from "./admin/routes/admin.routes";
 
-import path from "path";
-
 const app = express();
 
 app.use(cors());
@@ -29,16 +27,6 @@ app.use("/api", wishlistRoutes);
 app.use("/api", paymentRoutes);
 app.use("/api/admin", adminRoutes);
 
-
-app.use(
-    "/uploads",
-    express.static(
-        path.join(
-            process.cwd(),
-            "uploads"
-        )
-    )
-);
 
 
 

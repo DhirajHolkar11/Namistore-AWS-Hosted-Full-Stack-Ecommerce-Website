@@ -18,7 +18,9 @@ import {
 import { getCategories } from "@/admin/services/admin.product.service";
 
 
-import "@/styles/EditProductPage.css";
+import "@/admin/styles/EditProductPage.css";
+
+import { getImageUrl } from "@/utils/image-url";
 
 export default function EditProductPage() {
 
@@ -338,7 +340,7 @@ export default function EditProductPage() {
 
                         </label>
 
-                        <img
+                        {/* <img
 
                             src={`http://localhost:5000${currentImage}`}
 
@@ -346,6 +348,12 @@ export default function EditProductPage() {
 
                             className="current-image"
 
+                        /> */}
+
+                        <img
+                            src={getImageUrl(currentImage)}
+                            alt={name}
+                            className="current-image"
                         />
 
                     </div>

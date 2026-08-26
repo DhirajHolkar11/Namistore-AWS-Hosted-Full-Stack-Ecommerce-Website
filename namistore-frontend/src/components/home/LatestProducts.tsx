@@ -22,6 +22,8 @@ import SectionHeader from "@/components/common/SectionHeader";
 
 import "@/styles/LatestProducts.css";
 
+import { getImageUrl } from "@/utils/image-url";
+
 export default function LatestProducts() {
 
     const [
@@ -122,7 +124,8 @@ export default function LatestProducts() {
 
                                 price={Number(product.price)}
 
-                                image={`${process.env.NEXT_PUBLIC_API_URL}${product.imageUrl}`}
+                                // image={`${process.env.NEXT_PUBLIC_API_URL}${product.imageUrl}`}
+                                image={getImageUrl(product.imageUrl)}
 
                             />
 
