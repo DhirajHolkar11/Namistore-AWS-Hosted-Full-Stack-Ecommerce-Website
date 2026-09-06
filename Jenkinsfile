@@ -58,10 +58,31 @@ pipeline {
             }
         }
 
+        // stage('Test Deployment Access') {
+        //     steps {
+        //         sh '''
+        //     aws ssm send-command \
+        //       --region ${AWS_REGION} \
+        //       --instance-ids i-0eaca22a088911f36 \
+        //       --document-name "AWS-RunShellScript" \
+        //       --parameters 'commands=[
+        //         "docker pull ${BACKEND_IMAGE}:${BUILD_NUMBER}",
+        //         "docker pull ${FRONTEND_IMAGE}:${BUILD_NUMBER}",
+        //         "docker image inspect ${BACKEND_IMAGE}:${BUILD_NUMBER}",
+        //         "docker image inspect ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+        //       ]' \
+        //       --output text
+        //         '''
+        //     }
+        // }
+
+
         stage('Test Deployment Access') {
-            steps {
-                sh '''
-            aws ssm send-command \
+        steps {
+            sh '''
+            set -e
+
+            COMMAND_ID=$(aws ssm send-command \
               --region ${AWS_REGION} \
               --instance-ids i-0eaca22a088911f36 \
               --document-name "AWS-RunShellScript" \
@@ -71,8 +92,58 @@ pipeline {
                 "docker image inspect ${BACKEND_IMAGE}:${BUILD_NUMBER}",
                 "docker image inspect ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
               ]' \
-              --output text
-                '''
+              --query 'Command.CommandId' \
+              --output text)
+
+            echo "SSM Command ID: $COMMAND_ID"
+
+            echo "Waiting for SSM command to complete..."
+
+            while true; do
+
+                STATUS=$(aws ssm get-command-invocation \
+                  --region ${AWS_REGION} \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id i-0eaca22a088911f36 \
+                  --query 'Status' \
+                  --output text)
+
+                echo "SSM Status: $STATUS"
+
+                if [ "$STATUS" = "Success" ]; then
+                    echo "SSM command completed successfully."
+
+                    aws ssm get-command-invocation \
+                      --region ${AWS_REGION} \
+                      --command-id "$COMMAND_ID" \
+                      --instance-id i-0eaca22a088911f36 \
+                      --query 'StandardOutputContent' \
+                      --output text
+
+                    break
+                fi
+
+                if [ "$STATUS" = "Failed" ] || \
+                   [ "$STATUS" = "Cancelled" ] || \
+                   [ "$STATUS" = "TimedOut" ] || \
+                   [ "$STATUS" = "Cancelling" ]; then
+
+                    echo "SSM command failed."
+
+                    aws ssm get-command-invocation \
+                      --region ${AWS_REGION} \
+                      --command-id "$COMMAND_ID" \
+                      --instance-id i-0eaca22a088911f36 \
+                      --query '[Status,StandardOutputContent,StandardErrorContent]' \
+                      --output text
+
+                    exit 1
+                fi
+
+                sleep 5
+
+            done
+            '''
             }
         }
 
