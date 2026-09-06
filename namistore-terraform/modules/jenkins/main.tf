@@ -57,18 +57,24 @@ resource "aws_iam_policy" "jenkins_deploy" {
           "arn:aws:ecr:ap-south-1:274703560582:repository/namistore-frontend"
         ]
       },
+      
+      
       {
         Effect = "Allow"
 
         Action = [
-          "ssm:SendCommand"
+        "ssm:SendCommand"
         ]
 
         Resource = [
-          "arn:aws:ssm:ap-south-1:274703560582:document/AWS-RunShellScript",
+          "arn:aws:ssm:ap-south-1:*:document/AWS-RunShellScript",
           "arn:aws:ec2:ap-south-1:274703560582:instance/i-0eaca22a088911f36"
         ]
       },
+      
+      
+      
+      
       {
         Effect = "Allow"
 
