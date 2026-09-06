@@ -77,32 +77,36 @@ pipeline {
         // }
 
 
-        stage('Test Deployment Access') {
+        stage('Deploy to EC2') {
             steps {
-            sh '''
-            set -e
+                    sh '''
+                    set -e
 
             BACKEND_IMAGE_FULL="${BACKEND_IMAGE}:${BUILD_NUMBER}"
             FRONTEND_IMAGE_FULL="${FRONTEND_IMAGE}:${BUILD_NUMBER}"
 
-            echo "Backend image: $BACKEND_IMAGE_FULL"
-            echo "Frontend image: $FRONTEND_IMAGE_FULL"
+            echo "Deploying backend: $BACKEND_IMAGE_FULL"
+            echo "Deploying frontend: $FRONTEND_IMAGE_FULL"
 
             COMMAND_ID=$(aws ssm send-command \
               --region "${AWS_REGION}" \
               --instance-ids i-0eaca22a088911f36 \
               --document-name "AWS-RunShellScript" \
               --parameters "commands=[
+                \\"aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}\\",
                 \\"docker pull ${BACKEND_IMAGE_FULL}\\",
                 \\"docker pull ${FRONTEND_IMAGE_FULL}\\",
-                \\"docker image inspect ${BACKEND_IMAGE_FULL}\\",
-                \\"docker image inspect ${FRONTEND_IMAGE_FULL}\\"
+                \\"docker stop namistore-backend namistore-frontend || true\\",
+                \\"docker rm namistore-backend namistore-frontend || true\\",
+                \\"docker run -d --name namistore-backend --restart unless-stopped --env-file /opt/namistore/backend.env -p 5000:5000 ${BACKEND_IMAGE_FULL}\\",
+                \\"docker run -d --name namistore-frontend --restart unless-stopped -p 3000:3000 ${FRONTEND_IMAGE_FULL}\\",
+                \\"docker ps\\"
               ]" \
               --query 'Command.CommandId' \
               --output text)
 
             echo "SSM Command ID: $COMMAND_ID"
-            echo "Waiting for SSM command to complete..."
+            echo "Waiting for deployment to complete..."
 
             while true; do
 
@@ -117,7 +121,7 @@ pipeline {
 
                 if [ "$STATUS" = "Success" ]; then
 
-                    echo "SSM command completed successfully."
+                    echo "Deployment completed successfully."
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -134,7 +138,7 @@ pipeline {
                    [ "$STATUS" = "TimedOut" ] || \
                    [ "$STATUS" = "Cancelling" ]; then
 
-                    echo "SSM command failed."
+                    echo "Deployment failed."
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \

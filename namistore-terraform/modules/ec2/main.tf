@@ -30,7 +30,10 @@ resource "aws_instance" "backend" {
 
   iam_instance_profile = aws_iam_instance_profile.backend.name
 
-
+    root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
 
   user_data = <<-EOF
               #!/bin/bash
