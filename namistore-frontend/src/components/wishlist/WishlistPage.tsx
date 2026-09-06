@@ -243,7 +243,7 @@ className="wishlist-card"
 
 <img
 
-src={`http://localhost:5000${item.product.imageUrl}`}
+src={`${process.env.NEXT_PUBLIC_API_URL}${item.product.imageUrl}`}
 
 alt={item.product.name}
 

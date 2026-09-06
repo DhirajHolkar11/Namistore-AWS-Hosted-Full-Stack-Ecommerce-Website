@@ -31,3 +31,8 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t3.micro"
 }
+variable "enable_nat_gateway" {
+  description = "Whether to create a NAT Gateway"
+  type        = bool
+  default     = false
+}

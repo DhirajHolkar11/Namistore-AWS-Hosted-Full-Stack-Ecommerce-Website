@@ -10,7 +10,7 @@ export async function getCategories() {
 
     const response =
         await fetch(
-            "http://localhost:5000/api/categories",
+            `${process.env.NEXT_PUBLIC_API_URL}/api/categories`,
             {
                 headers: {
                     Authorization:
@@ -43,7 +43,7 @@ export async function createProduct(
 
     const response =
         await fetch(
-            "http://localhost:5000/api/products",
+            `${process.env.NEXT_PUBLIC_API_URL}/api/products`,
             {
                 method: "POST",
 
@@ -82,8 +82,7 @@ export async function deleteProduct(
 
     const response =
         await fetch(
-
-            `http://localhost:5000/api/products/${id}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`,
 
             {
 
@@ -126,7 +125,9 @@ export async function activateProduct(
     const response =
         await fetch(
 
-            `http://localhost:5000/api/products/${id}/activate`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}/activate`,
+
+            
 
             {
 
@@ -170,7 +171,7 @@ export async function getAdminProduct(
     const response =
         await fetch(
 
-            `http://localhost:5000/api/admin/products/${id}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/admin/products/${id}`,
 
             {
 
@@ -211,7 +212,7 @@ export async function updateProduct(
     const response =
         await fetch(
 
-            `http://localhost:5000/api/products/${id}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`,
 
             {
 

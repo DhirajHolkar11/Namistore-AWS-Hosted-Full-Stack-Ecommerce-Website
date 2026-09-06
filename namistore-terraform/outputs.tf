@@ -22,3 +22,11 @@ output "backend_ec2_public_ip" {
   description = "Public IP address of the Namistore backend EC2 instance"
   value       = module.ec2.public_ip
 }
+
+output "backend_repository_url" {
+  value = module.ecr.backend_repository_url
+}
+
+output "frontend_repository_url" {
+  value = module.ecr.frontend_repository_url
+}

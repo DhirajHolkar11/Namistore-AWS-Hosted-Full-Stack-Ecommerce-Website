@@ -5,6 +5,11 @@ resource "aws_iam_instance_profile" "backend" {
 }
 
 
+resource "aws_iam_role_policy_attachment" "ecr_read_only" {
+  role       = "namistore-ec2-ssm-role"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
 
 
 resource "aws_instance" "backend" {

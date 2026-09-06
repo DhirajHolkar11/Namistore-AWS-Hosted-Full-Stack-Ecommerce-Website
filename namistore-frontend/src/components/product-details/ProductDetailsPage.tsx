@@ -249,15 +249,7 @@ export default function ProductDetailsPage() {
 
                 <div className="product-image-section">
 
-                    {/* <img
-
-                        src={`http://localhost:5000${product.imageUrl}`}
-
-                        alt={product.name}
-
-                        className="product-image"
-
-                    /> */}
+                    
 
                     <img
                         src={getImageUrl(product.imageUrl)}

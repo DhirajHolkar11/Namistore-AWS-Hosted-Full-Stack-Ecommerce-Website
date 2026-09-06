@@ -33,12 +33,17 @@ resource "aws_db_instance" "main" {
 
   backup_retention_period = 1
 
-  skip_final_snapshot = true
+  skip_final_snapshot = false
 
   deletion_protection = false
+
+  lifecycle {
+  prevent_destroy = true
+}
 
   tags = {
     Name        = "namistore-postgresql"
     Environment = "production"
   }
+  
 }

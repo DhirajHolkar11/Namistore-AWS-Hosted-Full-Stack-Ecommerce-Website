@@ -340,15 +340,7 @@ export default function EditProductPage() {
 
                         </label>
 
-                        {/* <img
-
-                            src={`http://localhost:5000${currentImage}`}
-
-                            alt={name}
-
-                            className="current-image"
-
-                        /> */}
+                        
 
                         <img
                             src={getImageUrl(currentImage)}
