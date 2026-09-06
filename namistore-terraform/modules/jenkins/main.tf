@@ -43,12 +43,14 @@ resource "aws_iam_policy" "jenkins_deploy" {
         Effect = "Allow"
 
         Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart"
-        ]
+  "ecr:BatchCheckLayerAvailability",
+  "ecr:CompleteLayerUpload",
+  "ecr:InitiateLayerUpload",
+  "ecr:PutImage",
+  "ecr:UploadLayerPart",
+  "ecr:BatchGetImage",
+  "ecr:GetDownloadUrlForLayer"
+]
 
         Resource = [
           "arn:aws:ecr:ap-south-1:274703560582:repository/namistore-backend",

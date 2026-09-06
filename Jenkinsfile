@@ -57,5 +57,27 @@ pipeline {
                 '''
             }
         }
+
+        stage('Test Deployment Access') {
+            steps {
+                sh '''
+            aws ssm send-command \
+              --region ${AWS_REGION} \
+              --instance-ids i-0eaca22a088911f36 \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "docker pull ${BACKEND_IMAGE}:${BUILD_NUMBER}",
+                "docker pull ${FRONTEND_IMAGE}:${BUILD_NUMBER}",
+                "docker image inspect ${BACKEND_IMAGE}:${BUILD_NUMBER}",
+                "docker image inspect ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
+              ]' \
+              --output text
+                '''
+            }
+        }
+
+
+
     }
+
 }
