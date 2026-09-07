@@ -374,7 +374,7 @@ EOF
 
 
 
-    ```groovy
+
 stage('Cleanup Old Docker Images') {
     steps {
         sh '''
@@ -454,7 +454,6 @@ stage('Cleanup Old Docker Images') {
         '''
     }
 }
-```
 
 
     }
