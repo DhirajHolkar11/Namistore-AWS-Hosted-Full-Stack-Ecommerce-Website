@@ -58,29 +58,13 @@ pipeline {
             }
         }
 
-        // stage('Test Deployment Access') {
-        //     steps {
-        //         sh '''
-        //     aws ssm send-command \
-        //       --region ${AWS_REGION} \
-        //       --instance-ids i-0eaca22a088911f36 \
-        //       --document-name "AWS-RunShellScript" \
-        //       --parameters 'commands=[
-        //         "docker pull ${BACKEND_IMAGE}:${BUILD_NUMBER}",
-        //         "docker pull ${FRONTEND_IMAGE}:${BUILD_NUMBER}",
-        //         "docker image inspect ${BACKEND_IMAGE}:${BUILD_NUMBER}",
-        //         "docker image inspect ${FRONTEND_IMAGE}:${BUILD_NUMBER}"
-        //       ]' \
-        //       --output text
-        //         '''
-        //     }
-        // }
+        
 
 
         stage('Deploy to EC2') {
-            steps {
-                    sh '''
-                    set -e
+    steps {
+        sh '''
+            set -e
 
             BACKEND_IMAGE_FULL="${BACKEND_IMAGE}:${BUILD_NUMBER}"
             FRONTEND_IMAGE_FULL="${FRONTEND_IMAGE}:${BUILD_NUMBER}"
@@ -100,13 +84,21 @@ pipeline {
                 \\"docker rm namistore-backend namistore-frontend || true\\",
                 \\"docker run -d --name namistore-backend --restart unless-stopped --env-file /opt/namistore/backend.env -p 5000:5000 ${BACKEND_IMAGE_FULL}\\",
                 \\"docker run -d --name namistore-frontend --restart unless-stopped -p 3000:3000 ${FRONTEND_IMAGE_FULL}\\",
-                \\"docker ps\\"
+                \\"sleep 10\\",
+                \\"echo '--- Docker containers ---'\\",
+                \\"docker ps\\",
+                \\"echo '--- Backend health check ---'\\",
+                \\"curl -f http://localhost:5000/api/products > /dev/null\\",
+                \\"echo 'Backend is healthy.'\\",
+                \\"echo '--- Frontend health check ---'\\",
+                \\"curl -f http://localhost:3000 > /dev/null\\",
+                \\"echo 'Frontend is healthy.'\\"
               ]" \
               --query 'Command.CommandId' \
               --output text)
 
             echo "SSM Command ID: $COMMAND_ID"
-            echo "Waiting for deployment to complete..."
+            echo "Waiting for deployment and health checks..."
 
             while true; do
 
@@ -121,7 +113,7 @@ pipeline {
 
                 if [ "$STATUS" = "Success" ]; then
 
-                    echo "Deployment completed successfully."
+                    echo "Deployment and health checks completed successfully."
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -138,7 +130,7 @@ pipeline {
                    [ "$STATUS" = "TimedOut" ] || \
                    [ "$STATUS" = "Cancelling" ]; then
 
-                    echo "Deployment failed."
+                    echo "Deployment or health check failed."
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -152,9 +144,9 @@ pipeline {
 
                 sleep 5
             done
-            '''
-            }
-        }
+        '''
+    }
+}
 
 
 
