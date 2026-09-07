@@ -372,40 +372,94 @@ EOF
 
 
 
-
-
-
-stage('Cleanup Old Docker Images') {
+        stage('Cleanup Old Docker Images') {
     steps {
         sh '''
             set -e
 
+            echo "======================================"
             echo "Starting Docker image cleanup..."
+            echo "======================================"
+
+            cat > /tmp/cleanup.sh <<'EOF'
+#!/bin/bash
+
+set -e
+
+echo "======================================"
+echo "Docker image cleanup"
+echo "======================================"
+
+echo "--- Currently running containers ---"
+docker ps --format '{{.Names}} {{.Image}}' | grep '^namistore-' || true
+
+CURRENT_BACKEND=$(docker inspect namistore-backend --format '{{.Config.Image}}' 2>/dev/null || true)
+CURRENT_FRONTEND=$(docker inspect namistore-frontend --format '{{.Config.Image}}' 2>/dev/null || true)
+
+echo ""
+echo "Current backend:  $CURRENT_BACKEND"
+echo "Current frontend: $CURRENT_FRONTEND"
+
+echo ""
+echo "--- Removing old backend images ---"
+
+for IMAGE in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-backend:' || true); do
+
+    if [ "$IMAGE" != "$CURRENT_BACKEND" ]; then
+        echo "Removing $IMAGE"
+        docker rmi "$IMAGE" || true
+    fi
+
+done
+
+echo ""
+echo "--- Removing old frontend images ---"
+
+for IMAGE in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-frontend:' || true); do
+
+    if [ "$IMAGE" != "$CURRENT_FRONTEND" ]; then
+        echo "Removing $IMAGE"
+        docker rmi "$IMAGE" || true
+    fi
+
+done
+
+echo ""
+echo "--- Removing dangling images ---"
+
+docker image prune -f
+
+echo ""
+echo "--- Docker disk usage after cleanup ---"
+
+docker system df
+
+echo ""
+echo "======================================"
+echo "Docker cleanup completed successfully"
+echo "======================================"
+EOF
+
+            chmod +x /tmp/cleanup.sh
+
+            DEPLOY_SCRIPT=$(base64 -w 0 /tmp/cleanup.sh)
+
+            echo "Sending cleanup command to EC2..."
 
             COMMAND_ID=$(aws ssm send-command \
               --region "${AWS_REGION}" \
               --instance-ids i-0eaca22a088911f36 \
               --document-name "AWS-RunShellScript" \
-              --parameters 'commands=[
-                "set -e",
-                "echo --- Running Namistore containers ---",
-                "docker ps --format \\"{{.Names}} {{.Image}}\\" | grep "^namistore-" || true",
-                "echo --- Removing unused Namistore images ---",
-                "CURRENT_BACKEND=$(docker inspect namistore-backend --format "{{.Config.Image}}" 2>/dev/null || true)",
-                "CURRENT_FRONTEND=$(docker inspect namistore-frontend --format "{{.Config.Image}}" 2>/dev/null || true)",
-                "echo Current backend: $CURRENT_BACKEND",
-                "echo Current frontend: $CURRENT_FRONTEND",
-                "for IMAGE in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-backend:" || true); do if [ "$IMAGE" != "$CURRENT_BACKEND" ]; then echo "Removing $IMAGE"; docker rmi "$IMAGE" || true; fi; done",
-                "for IMAGE in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-frontend:" || true); do if [ "$IMAGE" != "$CURRENT_FRONTEND" ]; then echo "Removing $IMAGE"; docker rmi "$IMAGE" || true; fi; done",
-                "docker image prune -f",
-                "echo --- Docker disk usage after cleanup ---",
-                "docker system df"
-              ]' \
+              --parameters "commands=[
+                \\"echo ${DEPLOY_SCRIPT} | base64 -d > /tmp/cleanup.sh\\",
+                \\"chmod +x /tmp/cleanup.sh\\",
+                \\"/tmp/cleanup.sh\\"
+              ]" \
               --query 'Command.CommandId' \
               --output text)
 
-            echo "Cleanup SSM Command ID: $COMMAND_ID"
-            echo "Waiting for cleanup to complete..."
+            echo "SSM Cleanup Command ID: $COMMAND_ID"
+            echo "Waiting for cleanup..."
 
             while true; do
 
@@ -416,11 +470,14 @@ stage('Cleanup Old Docker Images') {
                   --query 'Status' \
                   --output text)
 
-                echo "Cleanup SSM Status: $STATUS"
+                echo "SSM Cleanup Status: $STATUS"
 
                 if [ "$STATUS" = "Success" ]; then
 
-                    echo "Cleanup command completed successfully."
+                    echo ""
+                    echo "======================================"
+                    echo "Docker cleanup completed successfully"
+                    echo "======================================"
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -437,6 +494,7 @@ stage('Cleanup Old Docker Images') {
                    [ "$STATUS" = "TimedOut" ] || \
                    [ "$STATUS" = "Cancelling" ]; then
 
+                    echo ""
                     echo "Docker cleanup failed."
 
                     aws ssm get-command-invocation \
@@ -454,6 +512,9 @@ stage('Cleanup Old Docker Images') {
         '''
     }
 }
+
+
+
 
 
     }
