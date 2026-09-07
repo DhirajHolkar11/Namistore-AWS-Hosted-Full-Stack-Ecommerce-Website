@@ -371,6 +371,91 @@ EOF
 }
 
 
-    }
 
+
+
+    ```groovy
+stage('Cleanup Old Docker Images') {
+    steps {
+        sh '''
+            set -e
+
+            echo "Starting Docker image cleanup..."
+
+            COMMAND_ID=$(aws ssm send-command \
+              --region "${AWS_REGION}" \
+              --instance-ids i-0eaca22a088911f36 \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "set -e",
+                "echo --- Running Namistore containers ---",
+                "docker ps --format \\"{{.Names}} {{.Image}}\\" | grep "^namistore-" || true",
+                "echo --- Removing unused Namistore images ---",
+                "CURRENT_BACKEND=$(docker inspect namistore-backend --format "{{.Config.Image}}" 2>/dev/null || true)",
+                "CURRENT_FRONTEND=$(docker inspect namistore-frontend --format "{{.Config.Image}}" 2>/dev/null || true)",
+                "echo Current backend: $CURRENT_BACKEND",
+                "echo Current frontend: $CURRENT_FRONTEND",
+                "for IMAGE in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-backend:" || true); do if [ "$IMAGE" != "$CURRENT_BACKEND" ]; then echo "Removing $IMAGE"; docker rmi "$IMAGE" || true; fi; done",
+                "for IMAGE in $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-frontend:" || true); do if [ "$IMAGE" != "$CURRENT_FRONTEND" ]; then echo "Removing $IMAGE"; docker rmi "$IMAGE" || true; fi; done",
+                "docker image prune -f",
+                "echo --- Docker disk usage after cleanup ---",
+                "docker system df"
+              ]' \
+              --query 'Command.CommandId' \
+              --output text)
+
+            echo "Cleanup SSM Command ID: $COMMAND_ID"
+            echo "Waiting for cleanup to complete..."
+
+            while true; do
+
+                STATUS=$(aws ssm get-command-invocation \
+                  --region "${AWS_REGION}" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id i-0eaca22a088911f36 \
+                  --query 'Status' \
+                  --output text)
+
+                echo "Cleanup SSM Status: $STATUS"
+
+                if [ "$STATUS" = "Success" ]; then
+
+                    echo "Cleanup command completed successfully."
+
+                    aws ssm get-command-invocation \
+                      --region "${AWS_REGION}" \
+                      --command-id "$COMMAND_ID" \
+                      --instance-id i-0eaca22a088911f36 \
+                      --query 'StandardOutputContent' \
+                      --output text
+
+                    break
+                fi
+
+                if [ "$STATUS" = "Failed" ] || \
+                   [ "$STATUS" = "Cancelled" ] || \
+                   [ "$STATUS" = "TimedOut" ] || \
+                   [ "$STATUS" = "Cancelling" ]; then
+
+                    echo "Docker cleanup failed."
+
+                    aws ssm get-command-invocation \
+                      --region "${AWS_REGION}" \
+                      --command-id "$COMMAND_ID" \
+                      --instance-id i-0eaca22a088911f36 \
+                      --query '[Status,StandardOutputContent,StandardErrorContent]' \
+                      --output text
+
+                    exit 1
+                fi
+
+                sleep 5
+            done
+        '''
+    }
+}
+```
+
+
+    }
 }
