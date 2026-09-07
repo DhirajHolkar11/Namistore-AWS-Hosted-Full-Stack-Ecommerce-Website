@@ -69,36 +69,256 @@ pipeline {
             BACKEND_IMAGE_FULL="${BACKEND_IMAGE}:${BUILD_NUMBER}"
             FRONTEND_IMAGE_FULL="${FRONTEND_IMAGE}:${BUILD_NUMBER}"
 
-            echo "Deploying backend: $BACKEND_IMAGE_FULL"
-            echo "Deploying frontend: $FRONTEND_IMAGE_FULL"
+            echo "======================================"
+            echo "New backend:  $BACKEND_IMAGE_FULL"
+            echo "New frontend: $FRONTEND_IMAGE_FULL"
+            echo "======================================"
+
+            # Create deployment script for the backend EC2
+            cat > /tmp/deploy.sh <<EOF
+#!/bin/bash
+
+set -e
+
+NEW_BACKEND_IMAGE="${BACKEND_IMAGE_FULL}"
+NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_FULL}"
+
+ECR_REGISTRY="${ECR_REGISTRY}"
+AWS_REGION="${AWS_REGION}"
+
+echo "======================================"
+echo "Checking currently deployed version"
+echo "======================================"
+
+CURRENT_BACKEND_IMAGE=\\$(docker inspect -f '{{.Config.Image}}' namistore-backend 2>/dev/null || true)
+CURRENT_FRONTEND_IMAGE=\\$(docker inspect -f '{{.Config.Image}}' namistore-frontend 2>/dev/null || true)
+
+echo "Current backend:  \\$CURRENT_BACKEND_IMAGE"
+echo "Current frontend: \\$CURRENT_FRONTEND_IMAGE"
+
+echo ""
+echo "======================================"
+echo "Logging in to ECR"
+echo "======================================"
+
+aws ecr get-login-password --region "\\$AWS_REGION" |
+docker login --username AWS --password-stdin "\\$ECR_REGISTRY"
+
+echo ""
+echo "======================================"
+echo "Pulling new images"
+echo "======================================"
+
+docker pull "\\$NEW_BACKEND_IMAGE"
+docker pull "\\$NEW_FRONTEND_IMAGE"
+
+echo ""
+echo "======================================"
+echo "Stopping current containers"
+echo "======================================"
+
+docker stop namistore-backend namistore-frontend || true
+docker rm namistore-backend namistore-frontend || true
+
+echo ""
+echo "======================================"
+echo "Starting new containers"
+echo "======================================"
+
+DEPLOY_FAILED=0
+
+docker run -d \
+    --name namistore-backend \
+    --restart unless-stopped \
+    --env-file /opt/namistore/backend.env \
+    -p 5000:5000 \
+    "\\$NEW_BACKEND_IMAGE" || DEPLOY_FAILED=1
+
+docker run -d \
+    --name namistore-frontend \
+    --restart unless-stopped \
+    -p 3000:3000 \
+    "\\$NEW_FRONTEND_IMAGE" || DEPLOY_FAILED=1
+
+if [ "\\$DEPLOY_FAILED" -eq 1 ]; then
+    echo ""
+    echo "======================================"
+    echo "NEW DEPLOYMENT FAILED"
+    echo "Starting rollback..."
+    echo "======================================"
+
+    docker stop namistore-backend namistore-frontend || true
+    docker rm namistore-backend namistore-frontend || true
+
+    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
+
+        echo "Restoring backend:  \\$CURRENT_BACKEND_IMAGE"
+        echo "Restoring frontend: \\$CURRENT_FRONTEND_IMAGE"
+
+        docker pull "\\$CURRENT_BACKEND_IMAGE"
+        docker pull "\\$CURRENT_FRONTEND_IMAGE"
+
+        docker run -d \
+            --name namistore-backend \
+            --restart unless-stopped \
+            --env-file /opt/namistore/backend.env \
+            -p 5000:5000 \
+            "\\$CURRENT_BACKEND_IMAGE"
+
+        docker run -d \
+            --name namistore-frontend \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            "\\$CURRENT_FRONTEND_IMAGE"
+
+        sleep 10
+
+        echo "Checking rolled-back backend..."
+        curl -f http://localhost:5000/api/products > /dev/null
+
+        echo "Checking rolled-back frontend..."
+        curl -f http://localhost:3000 > /dev/null
+
+        echo "Rollback completed successfully."
+
+    else
+        echo "No previous deployment was found."
+        echo "Rollback is not possible."
+    fi
+
+    exit 1
+fi
+
+echo ""
+echo "======================================"
+echo "Running health checks"
+echo "======================================"
+
+sleep 10
+
+echo "--- Docker containers ---"
+docker ps
+
+echo ""
+echo "--- Backend health check ---"
+
+if ! curl -f http://localhost:5000/api/products > /dev/null; then
+
+    echo "Backend health check FAILED."
+    echo "Starting rollback..."
+
+    docker stop namistore-backend namistore-frontend || true
+    docker rm namistore-backend namistore-frontend || true
+
+    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
+
+        docker pull "\\$CURRENT_BACKEND_IMAGE"
+        docker pull "\\$CURRENT_FRONTEND_IMAGE"
+
+        docker run -d \
+            --name namistore-backend \
+            --restart unless-stopped \
+            --env-file /opt/namistore/backend.env \
+            -p 5000:5000 \
+            "\\$CURRENT_BACKEND_IMAGE"
+
+        docker run -d \
+            --name namistore-frontend \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            "\\$CURRENT_FRONTEND_IMAGE"
+
+        sleep 10
+
+        curl -f http://localhost:5000/api/products > /dev/null
+        curl -f http://localhost:3000 > /dev/null
+
+        echo "Rollback completed successfully."
+    else
+        echo "No previous deployment available for rollback."
+    fi
+
+    exit 1
+fi
+
+echo "Backend is healthy."
+
+echo ""
+echo "--- Frontend health check ---"
+
+if ! curl -f http://localhost:3000 > /dev/null; then
+
+    echo "Frontend health check FAILED."
+    echo "Starting rollback..."
+
+    docker stop namistore-backend namistore-frontend || true
+    docker rm namistore-backend namistore-frontend || true
+
+    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
+
+        docker pull "\\$CURRENT_BACKEND_IMAGE"
+        docker pull "\\$CURRENT_FRONTEND_IMAGE"
+
+        docker run -d \
+            --name namistore-backend \
+            --restart unless-stopped \
+            --env-file /opt/namistore/backend.env \
+            -p 5000:5000 \
+            "\\$CURRENT_BACKEND_IMAGE"
+
+        docker run -d \
+            --name namistore-frontend \
+            --restart unless-stopped \
+            -p 3000:3000 \
+            "\\$CURRENT_FRONTEND_IMAGE"
+
+        sleep 10
+
+        curl -f http://localhost:5000/api/products > /dev/null
+        curl -f http://localhost:3000 > /dev/null
+
+        echo "Rollback completed successfully."
+    else
+        echo "No previous deployment available for rollback."
+    fi
+
+    exit 1
+fi
+
+echo "Frontend is healthy."
+
+echo ""
+echo "======================================"
+echo "DEPLOYMENT SUCCESSFUL"
+echo "======================================"
+echo "Backend:  \\$NEW_BACKEND_IMAGE"
+echo "Frontend: \\$NEW_FRONTEND_IMAGE"
+echo "======================================"
+
+EOF
+
+            chmod +x /tmp/deploy.sh
+
+            # Encode the deployment script so SSM receives it safely
+            DEPLOY_SCRIPT=$(base64 -w 0 /tmp/deploy.sh)
+
+            echo ""
+            echo "Sending deployment command to EC2..."
 
             COMMAND_ID=$(aws ssm send-command \
               --region "${AWS_REGION}" \
               --instance-ids i-0eaca22a088911f36 \
               --document-name "AWS-RunShellScript" \
               --parameters "commands=[
-                \\"aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}\\",
-                \\"docker pull ${BACKEND_IMAGE_FULL}\\",
-                \\"docker pull ${FRONTEND_IMAGE_FULL}\\",
-                \\"docker stop namistore-backend namistore-frontend || true\\",
-                \\"docker rm namistore-backend namistore-frontend || true\\",
-                \\"docker run -d --name namistore-backend --restart unless-stopped --env-file /opt/namistore/backend.env -p 5000:5000 ${BACKEND_IMAGE_FULL}\\",
-                \\"docker run -d --name namistore-frontend --restart unless-stopped -p 3000:3000 ${FRONTEND_IMAGE_FULL}\\",
-                \\"sleep 10\\",
-                \\"echo '--- Docker containers ---'\\",
-                \\"docker ps\\",
-                \\"echo '--- Backend health check ---'\\",
-                \\"curl -f http://localhost:5000/api/products > /dev/null\\",
-                \\"echo 'Backend is healthy.'\\",
-                \\"echo '--- Frontend health check ---'\\",
-                \\"curl -f http://localhost:3000 > /dev/null\\",
-                \\"echo 'Frontend is healthy.'\\"
+                \\"echo ${DEPLOY_SCRIPT} | base64 -d > /tmp/deploy.sh\\",
+                \\"chmod +x /tmp/deploy.sh\\",
+                \\"/tmp/deploy.sh\\"
               ]" \
               --query 'Command.CommandId' \
               --output text)
 
             echo "SSM Command ID: $COMMAND_ID"
-            echo "Waiting for deployment and health checks..."
+            echo "Waiting for deployment..."
 
             while true; do
 
@@ -113,7 +333,10 @@ pipeline {
 
                 if [ "$STATUS" = "Success" ]; then
 
-                    echo "Deployment and health checks completed successfully."
+                    echo ""
+                    echo "======================================"
+                    echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
+                    echo "======================================"
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -130,7 +353,10 @@ pipeline {
                    [ "$STATUS" = "TimedOut" ] || \
                    [ "$STATUS" = "Cancelling" ]; then
 
-                    echo "Deployment or health check failed."
+                    echo ""
+                    echo "======================================"
+                    echo "DEPLOYMENT FAILED"
+                    echo "======================================"
 
                     aws ssm get-command-invocation \
                       --region "${AWS_REGION}" \
@@ -147,7 +373,6 @@ pipeline {
         '''
     }
 }
-
 
 
     }
