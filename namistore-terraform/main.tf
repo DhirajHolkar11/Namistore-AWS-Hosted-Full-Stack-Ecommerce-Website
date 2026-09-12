@@ -9,7 +9,7 @@ module "vpc" {
 module "security_groups" {
   source = "./modules/security-groups"
 
-  vpc_id                  = module.vpc.vpc_id
+  vpc_id                     = module.vpc.vpc_id
   eks_node_security_group_id = module.eks.node_security_group_id
 }
 
@@ -77,14 +77,14 @@ module "eks" {
   node_desired_size = 1
 
   security_group_additional_rules = {
-  ingress_from_jenkins = {
-    description              = "Allow Jenkins to access EKS API"
-    protocol                 = "tcp"
-    from_port                = 443
-    to_port                  = 443
-    type                     = "ingress"
-    source_security_group_id = module.security_groups.jenkins_security_group_id
+    ingress_from_jenkins = {
+      description              = "Allow Jenkins to access EKS API"
+      protocol                 = "tcp"
+      from_port                = 443
+      to_port                  = 443
+      type                     = "ingress"
+      source_security_group_id = module.security_groups.jenkins_security_group_id
+    }
   }
-}
 
 }

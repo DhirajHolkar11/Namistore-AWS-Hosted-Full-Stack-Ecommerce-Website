@@ -38,12 +38,12 @@ resource "aws_db_instance" "main" {
   deletion_protection = false
 
   lifecycle {
-  prevent_destroy = true
-}
+    prevent_destroy = true
+  }
 
   tags = {
     Name        = "namistore-postgresql"
     Environment = "production"
   }
-  
+
 }

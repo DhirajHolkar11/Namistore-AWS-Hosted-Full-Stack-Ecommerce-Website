@@ -42,7 +42,7 @@ resource "aws_security_group" "database" {
   description = "Security group for Namistore PostgreSQL database"
   vpc_id      = var.vpc_id
 
-    ingress {
+  ingress {
     description     = "Allow PostgreSQL from EKS nodes"
     from_port       = 5432
     to_port         = 5432

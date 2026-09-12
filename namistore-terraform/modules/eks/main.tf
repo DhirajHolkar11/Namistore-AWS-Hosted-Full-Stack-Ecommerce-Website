@@ -21,24 +21,24 @@ module "eks" {
 
   # AWS-managed EKS add-ons
   addons = {
-  coredns = {
-    addon_version = "v1.13.2-eksbuild.24"
-  }
+    coredns = {
+      addon_version = "v1.13.2-eksbuild.24"
+    }
 
-  eks-pod-identity-agent = {
-    addon_version  = "v1.4.0-eksbuild.2"
-    before_compute = true
-  }
+    eks-pod-identity-agent = {
+      addon_version  = "v1.4.0-eksbuild.2"
+      before_compute = true
+    }
 
-  kube-proxy = {
-    addon_version = "v1.33.10-eksbuild.21"
-  }
+    kube-proxy = {
+      addon_version = "v1.33.10-eksbuild.21"
+    }
 
-  vpc-cni = {
-    addon_version  = "v1.23.0-eksbuild.1"
-    before_compute = true
+    vpc-cni = {
+      addon_version  = "v1.23.0-eksbuild.1"
+      before_compute = true
+    }
   }
-}
 
   # Managed worker nodes
   eks_managed_node_groups = {
