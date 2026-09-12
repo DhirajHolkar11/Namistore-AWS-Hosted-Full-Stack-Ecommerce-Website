@@ -34,39 +34,6 @@ resource "aws_security_group" "frontend" {
 }
 
 
-# Security Group for the backend
-resource "aws_security_group" "backend" {
-  name        = "namistore-backend-sg"
-  description = "Security group for Namistore backend"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description     = "Allow backend traffic from frontend"
-    from_port       = 5000
-    to_port         = 5000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.frontend.id]
-  }
-    ingress {
-    description = "Allow HTTP traffic to Nginx"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "namistore-backend-sg"
-  }
-}
 
 
 # Security Group for PostgreSQL/RDS
@@ -75,12 +42,12 @@ resource "aws_security_group" "database" {
   description = "Security group for Namistore PostgreSQL database"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description     = "Allow PostgreSQL from backend"
+    ingress {
+    description     = "Allow PostgreSQL from EKS nodes"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.backend.id]
+    security_groups = [var.eks_node_security_group_id]
   }
 
   egress {

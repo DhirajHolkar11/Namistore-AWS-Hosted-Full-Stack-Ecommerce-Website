@@ -12,7 +12,7 @@ pipeline {
 
     stages {
 
-        
+
 
         stage('Build Backend') {
             steps {
@@ -54,10 +54,34 @@ pipeline {
             }
         }
 
-        
+
+        stage('Configure EKS Access') {
+    steps {
+        sh '''
+            set -e
+
+            echo "======================================"
+            echo "Configuring EKS access"
+            echo "======================================"
+
+            mkdir -p "$HOME/.kube"
+
+            aws eks update-kubeconfig \
+              --region "${AWS_REGION}" \
+              --name "namistore-eks"
+
+            echo ""
+            echo "--- Verifying EKS access ---"
+
+            kubectl get nodes
+            kubectl get deployments -n namistore
+        '''
+    }
+}
 
 
-        stage('Deploy to EC2') {
+
+        stage('Deploy to EKS') {
     steps {
         sh '''
             set -e
@@ -66,449 +90,112 @@ pipeline {
             FRONTEND_IMAGE_FULL="${FRONTEND_IMAGE}:${BUILD_NUMBER}"
 
             echo "======================================"
-            echo "New backend:  $BACKEND_IMAGE_FULL"
-            echo "New frontend: $FRONTEND_IMAGE_FULL"
+            echo "Deploying to EKS"
+            echo "======================================"
+            echo "Backend:  $BACKEND_IMAGE_FULL"
+            echo "Frontend: $FRONTEND_IMAGE_FULL"
             echo "======================================"
 
-            # Create deployment script for the backend EC2
-            cat > /tmp/deploy.sh <<EOF
-#!/bin/bash
+            echo ""
+            echo "--- Updating backend ---"
 
-set -e
-
-NEW_BACKEND_IMAGE="${BACKEND_IMAGE_FULL}"
-NEW_FRONTEND_IMAGE="${FRONTEND_IMAGE_FULL}"
-
-ECR_REGISTRY="${ECR_REGISTRY}"
-AWS_REGION="${AWS_REGION}"
-
-echo "======================================"
-echo "Checking currently deployed version"
-echo "======================================"
-
-CURRENT_BACKEND_IMAGE=\\$(docker inspect -f '{{.Config.Image}}' namistore-backend 2>/dev/null || true)
-CURRENT_FRONTEND_IMAGE=\\$(docker inspect -f '{{.Config.Image}}' namistore-frontend 2>/dev/null || true)
-
-echo "Current backend:  \\$CURRENT_BACKEND_IMAGE"
-echo "Current frontend: \\$CURRENT_FRONTEND_IMAGE"
-
-echo ""
-echo "======================================"
-echo "Logging in to ECR"
-echo "======================================"
-
-aws ecr get-login-password --region "\\$AWS_REGION" |
-docker login --username AWS --password-stdin "\\$ECR_REGISTRY"
-
-echo ""
-echo "======================================"
-echo "Pulling new images"
-echo "======================================"
-
-docker pull "\\$NEW_BACKEND_IMAGE"
-docker pull "\\$NEW_FRONTEND_IMAGE"
-
-echo ""
-echo "======================================"
-echo "Stopping current containers"
-echo "======================================"
-
-docker stop namistore-backend namistore-frontend || true
-docker rm namistore-backend namistore-frontend || true
-
-echo ""
-echo "======================================"
-echo "Starting new containers"
-echo "======================================"
-
-DEPLOY_FAILED=0
-
-docker run -d \
-    --name namistore-backend \
-    --restart unless-stopped \
-    --env-file /opt/namistore/backend.env \
-    -p 5000:5000 \
-    "\\$NEW_BACKEND_IMAGE" || DEPLOY_FAILED=1
-
-docker run -d \
-    --name namistore-frontend \
-    --restart unless-stopped \
-    -p 3000:3000 \
-    "\\$NEW_FRONTEND_IMAGE" || DEPLOY_FAILED=1
-
-if [ "\\$DEPLOY_FAILED" -eq 1 ]; then
-    echo ""
-    echo "======================================"
-    echo "NEW DEPLOYMENT FAILED"
-    echo "Starting rollback..."
-    echo "======================================"
-
-    docker stop namistore-backend namistore-frontend || true
-    docker rm namistore-backend namistore-frontend || true
-
-    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
-
-        echo "Restoring backend:  \\$CURRENT_BACKEND_IMAGE"
-        echo "Restoring frontend: \\$CURRENT_FRONTEND_IMAGE"
-
-        docker pull "\\$CURRENT_BACKEND_IMAGE"
-        docker pull "\\$CURRENT_FRONTEND_IMAGE"
-
-        docker run -d \
-            --name namistore-backend \
-            --restart unless-stopped \
-            --env-file /opt/namistore/backend.env \
-            -p 5000:5000 \
-            "\\$CURRENT_BACKEND_IMAGE"
-
-        docker run -d \
-            --name namistore-frontend \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            "\\$CURRENT_FRONTEND_IMAGE"
-
-        sleep 10
-
-        echo "Checking rolled-back backend..."
-        curl -f http://localhost:5000/api/products > /dev/null
-
-        echo "Checking rolled-back frontend..."
-        curl -f http://localhost:3000 > /dev/null
-
-        echo "Rollback completed successfully."
-
-    else
-        echo "No previous deployment was found."
-        echo "Rollback is not possible."
-    fi
-
-    exit 1
-fi
-
-echo ""
-echo "======================================"
-echo "Running health checks"
-echo "======================================"
-
-sleep 10
-
-echo "--- Docker containers ---"
-docker ps
-
-echo ""
-echo "--- Backend health check ---"
-
-if ! curl -f http://localhost:5000/api/products > /dev/null; then
-
-    echo "Backend health check FAILED."
-    echo "Starting rollback..."
-
-    docker stop namistore-backend namistore-frontend || true
-    docker rm namistore-backend namistore-frontend || true
-
-    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
-
-        docker pull "\\$CURRENT_BACKEND_IMAGE"
-        docker pull "\\$CURRENT_FRONTEND_IMAGE"
-
-        docker run -d \
-            --name namistore-backend \
-            --restart unless-stopped \
-            --env-file /opt/namistore/backend.env \
-            -p 5000:5000 \
-            "\\$CURRENT_BACKEND_IMAGE"
-
-        docker run -d \
-            --name namistore-frontend \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            "\\$CURRENT_FRONTEND_IMAGE"
-
-        sleep 10
-
-        curl -f http://localhost:5000/api/products > /dev/null
-        curl -f http://localhost:3000 > /dev/null
-
-        echo "Rollback completed successfully."
-    else
-        echo "No previous deployment available for rollback."
-    fi
-
-    exit 1
-fi
-
-echo "Backend is healthy."
-
-echo ""
-echo "--- Frontend health check ---"
-
-if ! curl -f http://localhost:3000 > /dev/null; then
-
-    echo "Frontend health check FAILED."
-    echo "Starting rollback..."
-
-    docker stop namistore-backend namistore-frontend || true
-    docker rm namistore-backend namistore-frontend || true
-
-    if [ -n "\\$CURRENT_BACKEND_IMAGE" ] && [ -n "\\$CURRENT_FRONTEND_IMAGE" ]; then
-
-        docker pull "\\$CURRENT_BACKEND_IMAGE"
-        docker pull "\\$CURRENT_FRONTEND_IMAGE"
-
-        docker run -d \
-            --name namistore-backend \
-            --restart unless-stopped \
-            --env-file /opt/namistore/backend.env \
-            -p 5000:5000 \
-            "\\$CURRENT_BACKEND_IMAGE"
-
-        docker run -d \
-            --name namistore-frontend \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            "\\$CURRENT_FRONTEND_IMAGE"
-
-        sleep 10
-
-        curl -f http://localhost:5000/api/products > /dev/null
-        curl -f http://localhost:3000 > /dev/null
-
-        echo "Rollback completed successfully."
-    else
-        echo "No previous deployment available for rollback."
-    fi
-
-    exit 1
-fi
-
-echo "Frontend is healthy."
-
-echo ""
-echo "======================================"
-echo "DEPLOYMENT SUCCESSFUL"
-echo "======================================"
-echo "Backend:  \\$NEW_BACKEND_IMAGE"
-echo "Frontend: \\$NEW_FRONTEND_IMAGE"
-echo "======================================"
-
-EOF
-
-            chmod +x /tmp/deploy.sh
-
-            # Encode the deployment script so SSM receives it safely
-            DEPLOY_SCRIPT=$(base64 -w 0 /tmp/deploy.sh)
+            kubectl -n namistore set image \
+              deployment/namistore-backend \
+              namistore-backend="$BACKEND_IMAGE_FULL"
 
             echo ""
-            echo "Sending deployment command to EC2..."
+            echo "--- Updating frontend ---"
 
-            COMMAND_ID=$(aws ssm send-command \
-              --region "${AWS_REGION}" \
-              --instance-ids i-0eaca22a088911f36 \
-              --document-name "AWS-RunShellScript" \
-              --parameters "commands=[
-                \\"echo ${DEPLOY_SCRIPT} | base64 -d > /tmp/deploy.sh\\",
-                \\"chmod +x /tmp/deploy.sh\\",
-                \\"/tmp/deploy.sh\\"
-              ]" \
-              --query 'Command.CommandId' \
-              --output text)
+            kubectl -n namistore set image \
+              deployment/namistore-frontend \
+              namistore-frontend="$FRONTEND_IMAGE_FULL"
 
-            echo "SSM Command ID: $COMMAND_ID"
-            echo "Waiting for deployment..."
+            echo ""
+            echo "======================================"
+            echo "Waiting for backend rollout..."
+            echo "======================================"
 
-            while true; do
+            if ! kubectl -n namistore rollout status \
+              deployment/namistore-backend \
+              --timeout=5m; then
 
-                STATUS=$(aws ssm get-command-invocation \
-                  --region "${AWS_REGION}" \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id i-0eaca22a088911f36 \
-                  --query 'Status' \
-                  --output text)
+                echo "Backend rollout failed."
+                echo "Rolling back backend..."
 
-                echo "SSM Status: $STATUS"
+                kubectl -n namistore rollout undo \
+                  deployment/namistore-backend
 
-                if [ "$STATUS" = "Success" ]; then
+                kubectl -n namistore rollout status \
+                  deployment/namistore-backend \
+                  --timeout=5m || true
 
-                    echo ""
-                    echo "======================================"
-                    echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
-                    echo "======================================"
+                exit 1
+            fi
 
-                    aws ssm get-command-invocation \
-                      --region "${AWS_REGION}" \
-                      --command-id "$COMMAND_ID" \
-                      --instance-id i-0eaca22a088911f36 \
-                      --query 'StandardOutputContent' \
-                      --output text
+            echo ""
+            echo "======================================"
+            echo "Waiting for frontend rollout..."
+            echo "======================================"
 
-                    break
-                fi
+            if ! kubectl -n namistore rollout status \
+              deployment/namistore-frontend \
+              --timeout=5m; then
 
-                if [ "$STATUS" = "Failed" ] || \
-                   [ "$STATUS" = "Cancelled" ] || \
-                   [ "$STATUS" = "TimedOut" ] || \
-                   [ "$STATUS" = "Cancelling" ]; then
+                echo "Frontend rollout failed."
+                echo "Rolling back frontend..."
 
-                    echo ""
-                    echo "======================================"
-                    echo "DEPLOYMENT FAILED"
-                    echo "======================================"
+                kubectl -n namistore rollout undo \
+                  deployment/namistore-frontend
 
-                    aws ssm get-command-invocation \
-                      --region "${AWS_REGION}" \
-                      --command-id "$COMMAND_ID" \
-                      --instance-id i-0eaca22a088911f36 \
-                      --query '[Status,StandardOutputContent,StandardErrorContent]' \
-                      --output text
+                kubectl -n namistore rollout status \
+                  deployment/namistore-frontend \
+                  --timeout=5m || true
 
-                    exit 1
-                fi
+                exit 1
+            fi
 
-                sleep 5
-            done
+            echo ""
+            echo "======================================"
+            echo "Checking deployed pods"
+            echo "======================================"
+
+            kubectl -n namistore get pods
+
+            echo ""
+            echo "======================================"
+            echo "EKS DEPLOYMENT SUCCESSFUL"
+            echo "======================================"
         '''
     }
 }
 
 
 
-        stage('Cleanup Old Docker Images') {
+        stage('Cleanup Jenkins Docker Images') {
     steps {
         sh '''
             set -e
 
             echo "======================================"
-            echo "Starting Docker image cleanup..."
+            echo "Cleaning Jenkins Docker images"
             echo "======================================"
 
-            cat > /tmp/cleanup.sh <<'EOF'
-#!/bin/bash
+            echo ""
+            echo "--- Docker disk usage before cleanup ---"
+            docker system df
 
-set -e
+            echo ""
+            echo "--- Removing unused Docker images ---"
+            docker image prune -af
 
-echo "======================================"
-echo "Docker image cleanup"
-echo "======================================"
+            echo ""
+            echo "--- Docker disk usage after cleanup ---"
+            docker system df
 
-echo "--- Currently running containers ---"
-docker ps --format '{{.Names}} {{.Image}}' | grep '^namistore-' || true
-
-CURRENT_BACKEND=$(docker inspect namistore-backend --format '{{.Config.Image}}' 2>/dev/null || true)
-CURRENT_FRONTEND=$(docker inspect namistore-frontend --format '{{.Config.Image}}' 2>/dev/null || true)
-
-echo ""
-echo "Current backend:  $CURRENT_BACKEND"
-echo "Current frontend: $CURRENT_FRONTEND"
-
-echo ""
-echo "--- Removing old backend images ---"
-
-for IMAGE in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-backend:' || true); do
-
-    if [ "$IMAGE" != "$CURRENT_BACKEND" ]; then
-        echo "Removing $IMAGE"
-        docker rmi "$IMAGE" || true
-    fi
-
-done
-
-echo ""
-echo "--- Removing old frontend images ---"
-
-for IMAGE in $(docker images --format '{{.Repository}}:{{.Tag}}' | grep '^274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-frontend:' || true); do
-
-    if [ "$IMAGE" != "$CURRENT_FRONTEND" ]; then
-        echo "Removing $IMAGE"
-        docker rmi "$IMAGE" || true
-    fi
-
-done
-
-echo ""
-echo "--- Removing dangling images ---"
-
-docker image prune -f
-
-echo ""
-echo "--- Docker disk usage after cleanup ---"
-
-docker system df
-
-echo ""
-echo "======================================"
-echo "Docker cleanup completed successfully"
-echo "======================================"
-EOF
-
-            chmod +x /tmp/cleanup.sh
-
-            DEPLOY_SCRIPT=$(base64 -w 0 /tmp/cleanup.sh)
-
-            echo "Sending cleanup command to EC2..."
-
-            COMMAND_ID=$(aws ssm send-command \
-              --region "${AWS_REGION}" \
-              --instance-ids i-0eaca22a088911f36 \
-              --document-name "AWS-RunShellScript" \
-              --parameters "commands=[
-                \\"echo ${DEPLOY_SCRIPT} | base64 -d > /tmp/cleanup.sh\\",
-                \\"chmod +x /tmp/cleanup.sh\\",
-                \\"/tmp/cleanup.sh\\"
-              ]" \
-              --query 'Command.CommandId' \
-              --output text)
-
-            echo "SSM Cleanup Command ID: $COMMAND_ID"
-            echo "Waiting for cleanup..."
-
-            while true; do
-
-                STATUS=$(aws ssm get-command-invocation \
-                  --region "${AWS_REGION}" \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id i-0eaca22a088911f36 \
-                  --query 'Status' \
-                  --output text)
-
-                echo "SSM Cleanup Status: $STATUS"
-
-                if [ "$STATUS" = "Success" ]; then
-
-                    echo ""
-                    echo "======================================"
-                    echo "Docker cleanup completed successfully"
-                    echo "======================================"
-
-                    aws ssm get-command-invocation \
-                      --region "${AWS_REGION}" \
-                      --command-id "$COMMAND_ID" \
-                      --instance-id i-0eaca22a088911f36 \
-                      --query 'StandardOutputContent' \
-                      --output text
-
-                    break
-                fi
-
-                if [ "$STATUS" = "Failed" ] || \
-                   [ "$STATUS" = "Cancelled" ] || \
-                   [ "$STATUS" = "TimedOut" ] || \
-                   [ "$STATUS" = "Cancelling" ]; then
-
-                    echo ""
-                    echo "Docker cleanup failed."
-
-                    aws ssm get-command-invocation \
-                      --region "${AWS_REGION}" \
-                      --command-id "$COMMAND_ID" \
-                      --instance-id i-0eaca22a088911f36 \
-                      --query '[Status,StandardOutputContent,StandardErrorContent]' \
-                      --output text
-
-                    exit 1
-                fi
-
-                sleep 5
-            done
+            echo ""
+            echo "======================================"
+            echo "Docker cleanup completed"
+            echo "======================================"
         '''
     }
 }

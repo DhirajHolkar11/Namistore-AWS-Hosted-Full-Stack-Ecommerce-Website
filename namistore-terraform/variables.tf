@@ -26,11 +26,7 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "ec2_instance_type" {
-  description = "EC2 instance type for the Namistore backend"
-  type        = string
-  default     = "t3.micro"
-}
+
 variable "enable_nat_gateway" {
   description = "Whether to create a NAT Gateway"
   type        = bool

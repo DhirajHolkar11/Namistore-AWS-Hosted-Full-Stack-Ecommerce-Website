@@ -9,7 +9,8 @@ module "vpc" {
 module "security_groups" {
   source = "./modules/security-groups"
 
-  vpc_id = module.vpc.vpc_id
+  vpc_id                  = module.vpc.vpc_id
+  eks_node_security_group_id = module.eks.node_security_group_id
 }
 
 module "s3" {
@@ -32,19 +33,7 @@ module "rds" {
   database_security_group_id = module.security_groups.database_security_group_id
 }
 
-module "ec2" {
-  source = "./modules/ec2"
 
-  vpc_id = module.vpc.vpc_id
-
-  subnet_id = module.vpc.public_subnet_ids[0]
-
-  security_group_id = module.security_groups.backend_security_group_id
-
-  instance_type = var.ec2_instance_type
-
-  instance_name = "namistore-backend"
-}
 
 module "ecr" {
   source = "./modules/ecr"
@@ -59,4 +48,43 @@ module "jenkins" {
 
   instance_type = "t3.small"
   instance_name = "namistore-jenkins"
+}
+
+
+module "eks" {
+  source = "./modules/eks"
+
+  cluster_name    = "namistore-eks"
+  cluster_version = "1.33"
+
+  vpc_id = "vpc-0c4b140fcdb3b436f"
+
+  private_subnet_ids = [
+    "subnet-004cf7872889e91cf",
+    "subnet-00a5773ded6b066dd"
+  ]
+
+  public_access_cidrs = [
+    "205.254.169.250/32"
+  ]
+
+  node_instance_types = [
+    "t3.small"
+  ]
+
+  node_min_size     = 1
+  node_max_size     = 2
+  node_desired_size = 1
+
+  security_group_additional_rules = {
+  ingress_from_jenkins = {
+    description              = "Allow Jenkins to access EKS API"
+    protocol                 = "tcp"
+    from_port                = 443
+    to_port                  = 443
+    type                     = "ingress"
+    source_security_group_id = module.security_groups.jenkins_security_group_id
+  }
+}
+
 }
