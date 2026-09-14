@@ -80,12 +80,36 @@ pipeline {
             echo "--- Verifying EKS access ---"
 
             kubectl get nodes
-            kubectl get deployments -n namistore
+            
         '''
     }
 }
 
 
+
+
+
+                stage('Apply Kubernetes Manifests') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "======================================"
+                    echo "Applying Kubernetes manifests"
+                    echo "======================================"
+
+                    kubectl apply -f k8s/
+
+                    echo ""
+                    echo "--- Kubernetes resources ---"
+                    kubectl get all -n namistore
+
+                    echo ""
+                    echo "--- Ingress ---"
+                    kubectl get ingress -n namistore
+                '''
+            }
+        }
 
         stage('Deploy to EKS') {
     steps {
