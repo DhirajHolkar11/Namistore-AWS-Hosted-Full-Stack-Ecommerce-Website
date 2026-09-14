@@ -12,7 +12,7 @@ module "eks" {
 
   # EKS API endpoint
   endpoint_private_access = true
-  endpoint_public_access  = true
+  endpoint_public_access  = false
 
   endpoint_public_access_cidrs = var.public_access_cidrs
 
