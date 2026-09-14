@@ -18,7 +18,7 @@ spec:
           image: 274703560582.dkr.ecr.ap-south-1.amazonaws.com/namistore-frontend:17
           ports:
             - containerPort: 3000
-	  resources:
+    resources:
             requests:
               cpu: "100m"
               memory: "128Mi"
